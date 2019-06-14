@@ -1,0 +1,99 @@
+---
+title: "Machine Learning Project"
+author: "Hadley Ang"
+date: "June 14, 2019"
+output: html_document
+---
+
+##Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+##Data
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+##Project Goal
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+##Loading Packages
+```{r, echo=TRUE, message=FALSE, eval=FALSE}
+
+require(caret)
+require(rpart)
+require(rpart.plot)
+```
+
+##Loading and Processing of Data
+```{r, echo=TRUE,eval=FALSE}
+trainURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(trainURL, destfile="pml-training.csv", method="curl", mode="wb")
+download.file(trainURL, destfile="pml-testing.csv", method="curl", mode="wb")
+
+training_data<-read.csv("pml-training.csv", header=TRUE, na.strings=c("NA", "", "#DIV/0!"))
+testing_data<-read.csv("pml-testing.csv", header=TRUE, na.strings=c("NA", "", "#DIV/0!"))
+
+training_data$classe<-as.factor(training_data$classe)
+```
+
+Exploring the data set, there are a lot of NA's found in multiple columns. Columns that consist more than 90% NA's will be removed.
+
+```{r, echo=TRUE, eval=FALSE}
+training <- training_data[,!(colSums(is.na(training_data))>=0.9*nrow(training_data))]
+```
+
+There are also some columns that won't be used such as X, user_name, raw_timestamp_part_1, and etc.
+
+```{r, echo=TRUE, eval=FALSE}
+training<-training[, -c(1:7)]
+```
+
+##Partitioning of Data
+```{r, echo=TRUE,eval=FALSE}
+inTrain<-createDataPartition(y=training$classe, p=0.75, list=FALSE)
+subTraining<-training[inTrain,]
+subTesting<-training[-inTrain,]
+```
+
+##Decision Tree Model
+Creating the model
+```{r, echo=TRUE,eval=FALSE}
+set.seed(2007)
+DecTree <- rpart(classe~.,data=subTraining,method="class")
+```
+Testing the model
+```{r, echo=TRUE,eval=FALSE}
+predictDT <- predict(DecTree,subTesting,type="class")
+confusionMatrix(predictDT,subTesting$classe)$overall
+```
+
+##Random Forest Model
+Creating the model
+```{r, echo=TRUE, eval=FALSE}
+RanFor <- train(classe~.,subTraining,methd="rf")
+predictRF <- predict(RanFor,subTesting)
+confusionMatrix(predictRF,subTesting$classe)$overall
+```
+
+##Conclusions
+We will select the random forest model because it returns a much higher accuracy score of 99.33% as compared to 74% of the decision tree model.
+
+The out of sample error is simply 1- accuracy, hence it is equal to approximately 0.67%. 
+
+##Creating Predictions
+We place the predictions in the same data frame as the initial test data set, and export it.
+```{r, echo=TRUE, eval=FALSE}
+prediction <- data.frame(predict(RanFor,testing_data))
+testing_data$prediction <- prediction
+
+write.csv(testing_data,"testing_data")
+```
+
